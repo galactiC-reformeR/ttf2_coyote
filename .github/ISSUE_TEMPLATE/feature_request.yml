@@ -1,0 +1,46 @@
+name: 功能建议
+description: 想加一个配置项、改一处输出行为，或接别的游戏
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先说清「哪次真实场景让你想要这个」—— 这个项目的每个行为都对应一次实测偏差，
+        没有场景支撑的功能很容易做成没人用的面板项（v2.20.1 就删过两个）。
+
+  - type: textarea
+    id: scene
+    attributes:
+      label: 场景
+      description: 什么时候会觉得现在的行为不对？游戏里发生了什么、你希望设备怎么反馈
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你想要的改法
+      description: 加一个面板项？改默认值？换输出形态？如果已经想好参数范围也写上
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 现在怎么绕过的
+      description: 调阈值？切剧本？还是干脆关掉某个条目
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 改动范围（你的判断，不必准确）
+      options:
+        - 只加面板项 / 默认值
+        - 要改引擎判定（engine.py）
+        - 要改数据源或内存定位
+        - 只是文档或介绍站
+        - 接别的游戏（需要重新标定内存链）
+    validations:
+      required: true

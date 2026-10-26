@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 先看自查三步
+    url: https://github.com/galactiC-reformeR/ttf2_coyote/blob/main/SUPPORT.md
+    about: 没有输出 / 读不到数据 / 游戏更新后失效，多半能在这里直接定位
+  - name: 安全问题（强度越界、急停失效、误触发）
+    url: https://github.com/galactiC-reformeR/ttf2_coyote/security/advisories/new
+    about: 请走私密报告，不要开公开 issue
+  - name: 介绍站（安装、参数面板、版本轨迹）
+    url: https://galactic-reformer.github.io/ttf2_coyote/
+    about: 数字与默认值都来自 manifest.json

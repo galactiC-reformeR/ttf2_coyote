@@ -489,8 +489,17 @@ ttf2_coyote/            ← 仓库根 = 插件本体（放进 D:\dghub\plugins\ 
 ├─ tools-mz/            接入 nw.js（RPG Maker MV/MZ）游戏的实测记录与 CDP 探针
 ├─ nscalib-mod/         可选：游戏内标定模组（Northstar 服务端脚本）
 ├─ docs/                介绍站（GitHub Pages 发布根，维护说明见 docs/README.md）
-└─ *.md                 通道分配、标定清单等说明
+├─ .github/             issue 模板、PR 模板
+└─ *.md                 通道分配、标定清单，以及下面这几份项目文档
 ```
+
+| 文档 | 内容 |
+|---|---|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 如何改判定、如何重新标定、自测要求、文档数字回源 |
+| [CHANGELOG.md](CHANGELOG.md) | 每个版本对应修掉的那次真实故障 |
+| [SUPPORT.md](SUPPORT.md) | 出问题先自查的三步，以及报问题要带的三样东西 |
+| [SECURITY.md](SECURITY.md) | 强度越界 / 急停失效 / 误触发怎么私密报告 |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 隐私与强度安全相关的几条约定 |
 
 ## 声明
 
@@ -501,8 +510,12 @@ ttf2_coyote/            ← 仓库根 = 插件本体（放进 D:\dghub\plugins\ 
 
 ## 反馈
 
-报问题时请附上：日志里从「连接 DGHub」到出错的那几行、游戏进程名、以及
-`python tools\probe_process.py` 的输出 —— 这三样基本就能定位到「进程不对 / 偏移失效 / 配置冲突」。
+报问题前先过一遍 [SUPPORT.md](SUPPORT.md) 的三步自查。还是要报的话，请附上：
+日志里从「连接 DGHub」到出错的那几行、游戏进程名、以及 `python tools\probe_process.py` 的输出 ——
+这三样基本就能定位到「进程不对 / 偏移失效 / 配置冲突」。
+
+- Bug 与功能建议：[新建 issue](https://github.com/galactiC-reformeR/ttf2_coyote/issues/new/choose)（有模板）；
+- 强度越界、急停失效、误触发这类：走 [SECURITY.md](SECURITY.md) 的私密报告，**不要开公开 issue**。
 
 ## 许可
 
