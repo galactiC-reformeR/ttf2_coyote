@@ -1,0 +1,82 @@
+{
+  "_note": "内存只读轮询的数据源方言配置。全部 verified=false，必须由 P0 实测填写后才可使用。",
+  "_rule": "插件只申请 PROCESS_VM_READ | PROCESS_QUERY_INFORMATION，绝不写游戏内存。",
+
+  "process": {
+    "exeName": "Titanfall2.exe",
+    "module": "Titanfall2.exe",
+    "_module_note": "泰坦陨落 2 PC 为单模块可执行文件（引擎+客户端+服务端同模块），没有 client.dll/engine.dll 分离的锚点。",
+    "arch": "x64"
+  },
+
+  "sampling": {
+    "intervalMs": 8,
+    "_intervalMs_note": "单次页级 ReadProcessMemory 取全字段，禁止逐字段多次系统调用。",
+    "pageGrab": true,
+    "failedReadIsUnknown": true,
+    "_failedReadIsUnknown_note": "读取失败必须作为 Unknown 上报（readOk=false），绝不返回 0"
+  },
+
+  "pointers": {
+    "localPlayer": {
+      "kind": "chain",
+      "moduleOffset": null,
+      "offsets": [],
+      "signature": null,
+      "verified": false,
+      "discovery": "先由 IEngineClient/entity list 定位本地玩家，再反推指针链；或用字符串扫描定位候选"
+    },
+    "titánSoul": {
+      "kind": "chain",
+      "moduleOffset": null,
+      "offsets": [],
+      "verified": false,
+      "_note": "泰坦血量可能挂在 TitanSoul 实体上，也可能与铁驭共用玩家实体的同一字段——由刺激实验 2（上/下机）确定，决定是一条链还是两条链"
+    }
+  },
+
+  "fields": {
+    "epoch":        { "kind": "offset", "value": null, "verified": false, "candidates": ["handle generation", "spawn count", "life id", "respawn counter"] },
+    "inTitan":      { "kind": "flag",   "value": null, "verified": false, "candidates": ["IsTitan 类标志位"] },
+    "alive":        { "kind": "flag",   "value": null, "verified": false },
+    "health":       { "kind": "int32",  "value": null, "verified": false, "discovery": "exact-delta：施加已知伤害，找恰好下降该值的字段" },
+    "maxHealth":    { "kind": "int32",  "value": null, "verified": false, "note": "每 tick 重读；Monarch 升级与边境防御 Aegis 会中途改变" },
+    "doomed":       { "kind": "flag",   "value": null, "verified": false, "discovery": "字符串扫描 doom 附近的标志位；用「打到濒死 / 插电池解除」两次刺激确认" },
+    "m20":          { "kind": "enum",   "value": null, "verified": false, "candidates": ["相机模式 / 视图实体 / 脚本化第三人称视图标志"], "note": "P0 项：必须验证覆盖处决动画全程、己方处决敌方时的取值、死亡相机阶段是否仍为真" },
+    "m25":          { "kind": "flag",   "value": null, "verified": false, "candidates": ["复活计时器激活", "死亡相机模式", "IsDead 电平"], "note": "P0 项：优先用复活计时器，最贴近「死亡界面出现」；若用 IsDead 需实测与界面的延迟 δ" },
+    "chassisId":    { "kind": "enum",   "value": null, "verified": false, "note": "仅用于格数识别（显示层），非核心功能" }
+  },
+
+  "discovery": {
+    "protocol": "controlled-stimulus-exact-delta",
+    "damageSteps": [137, 137, 137, 137, 137, 500, 1234, 2500],
+    "_protocol_note": "在 Northstar 私人服上用脚本施加精确伤害，筛选「每次刺激恰好下降 δ、其余时刻恒定」的 32 位整数；用互不相同的 δ 做一致性检验以排除弹药数/计时器/经验值等反例。",
+    "stimulusExperiments": [
+      { "id": 1, "action": "施加已知伤害", "confirms": ["health"] },
+      { "id": 2, "action": "上机 / 下机", "confirms": ["inTitan", "epoch", "maxHealth", "chassisId", "health 载体是否与铁驭共用"] },
+      { "id": 3, "action": "打到血量归零进入濒死", "confirms": ["doomed", "health 在濒死切换瞬间的语义变化"] },
+      { "id": 4, "action": "濒死时插入电池", "confirms": ["doomed 下降沿", "恢复基线规则"] },
+      { "id": 5, "action": "被 AI/队友处决（3 次）", "confirms": ["m20", "处决动画时长 Δt"] },
+      { "id": 6, "action": "依次上全部 7 种机体 + 各 Aegis 等级", "confirms": ["chassisId", "maxHealth ↔ 格数 标定表"] },
+      { "id": 7, "action": "己方处决敌方", "confirms": ["m20 在该场景的取值", "doomed 门控是否足够"] },
+      { "id": 8, "action": "死亡（记录 m25 与泰坦被摧毁时刻的差）", "confirms": ["m25", "延迟 δ", "死亡窗口实际长度"] }
+    ]
+  },
+
+  "validation": {
+    "healthRange": [0, "maxHealth"],
+    "epochMonotonic": true,
+    "tupleConsistency": [
+      "doomed == true && alive == false 视为 Invalid",
+      "inTitan == false && 该采样属于泰坦纪元 视为 Invalid",
+      "epoch 未变 && |health - baseline| > maxHealth 视为 Invalid",
+      "readOk == false 视为 Invalid"
+    ],
+    "invalidStreakToRelocate": 5
+  },
+
+  "limits": {
+    "readFromDevice": true,
+    "_note": "若郊狼 API 不暴露用户上限，则置 false：引擎按 cfg 处理、clamp=none，且界面无法显示被限幅状态"
+  }
+}

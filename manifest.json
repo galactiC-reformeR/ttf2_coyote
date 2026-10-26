@@ -1,0 +1,424 @@
+{
+  "id": "ttf2_coyote",
+  "name": "泰坦陨落2 联动",
+  "version": "2.20.5",
+  "sdk": "1",
+  "author": "许昊龙",
+  "description": "泰坦陨落2 泰坦血量 → 郊狼电刺激。数据源为进程内存只读轮询（无注入、不读屏），内存定位已内置、无需配置：A 通道按血量档位持续输出（70%/50%/30%/濒死四档），B 通道输出单次受击脉冲与死亡脉冲。",
+  "entry": "main.py",
+  "capabilities": {
+    "startup_check": true
+  },
+  "config_schema": [
+    {
+      "section": "⚙️ 基础与数据源",
+      "fields": [
+        {
+          "key": "source_mode",
+          "type": "select",
+          "label": "数据源",
+          "default": "memory",
+          "options": [
+            {
+              "value": "memory",
+              "label": "内存只读轮询（正式）"
+            },
+            {
+              "value": "sim",
+              "label": "模拟数据（无游戏也能验证全链路）"
+            },
+            {
+              "value": "off",
+              "label": "关闭（不读取任何数据）"
+            }
+          ],
+          "description": "模拟模式会用内置战斗剧本驱动引擎，用来验证通道、日志与条目配置是否正常"
+        },
+        {
+          "key": "sim_scenario",
+          "type": "select",
+          "label": "模拟剧本",
+          "default": "R1",
+          "options": [
+            {
+              "value": "R1",
+              "label": "演练：30% 两通道 → 插电池恢复 → 50% 两通道（只跑一次）"
+            },
+            {
+              "value": "S1",
+              "label": "演练：70%→50%→30%→濒死，A 档位 + 每次受击 B 脉冲（只跑一次）"
+            },
+            {
+              "value": "S2",
+              "label": "演练：被处决 → 死亡界面 → 45×5 秒死亡脉冲（只跑一次）"
+            },
+            {
+              "value": "S4",
+              "label": "演练：濒死 → 插电池恢复 → 按新档位输出（只跑一次）"
+            },
+            {
+              "value": "S10",
+              "label": "演练：连续受击只给一次脉冲（只跑一次）"
+            }
+          ],
+          "description": "五个剧本都是演练式：开场白 → 带中文解说的运行日志 → 结束语，播完即停、不重复报。其它剧本（S3、S5–S9、S11–S17）会循环重播，用于反复压判定逻辑，可在配置里手填 id 前缀"
+        },
+        {
+          "key": "mem_module",
+          "type": "text",
+          "label": "进程 / 默认模块名",
+          "default": "auto",
+          "description": "auto = 自动依次尝试 Titanfall2.exe → NorthstarLauncher.exe → Titanfall2_trial.exe。注意：新版 Northstar 把引擎加载进 NorthstarLauncher.exe 进程，此时不存在 Titanfall2.exe；指针链里若自带模块名（如 engine.dll+0x1234）则以链里写的为准。也可以填其它游戏的 exe 名来附加（名字带空格也行，如 nw.js 打包的「Die cry.exe」；同名多进程时自动选有游戏窗口的那个）——但指针链里的偏移仍是本游戏的，换游戏要同步换链。"
+        },
+        {
+          "key": "mem_poll_ms",
+          "type": "number",
+          "label": "采样间隔 (ms)",
+          "default": 8,
+          "min": 4,
+          "max": 200,
+          "step": 1,
+          "description": "8ms 约等于服务端 tick 的一半，足够分辨逐发受击"
+        },
+        {
+          "key": "dry_run",
+          "type": "bool",
+          "label": "演练模式（不向设备发任何输出）",
+          "default": false
+        },
+        {
+          "key": "change_log",
+          "type": "bool",
+          "label": "输出变更日志",
+          "default": true,
+          "description": "按 (档位/条目, 配置强度, 生效强度, 限幅, 原因) 变化时打印一行，可直接核对体感"
+        },
+        {
+          "key": "debug_log",
+          "type": "bool",
+          "label": "输出逐帧调试日志",
+          "default": false,
+          "description": "仅排查时开；会以限速方式打印原始读数"
+        }
+      ]
+    },
+    {
+      "section": "🎯 [A] 血量档位持续输出",
+      "fields": [
+        {
+          "key": "a_channel",
+          "type": "select",
+          "label": "输出通道（持续）",
+          "default": "a",
+          "options": [
+            {
+              "value": "a",
+              "label": "A 通道"
+            },
+            {
+              "value": "b",
+              "label": "B 通道"
+            }
+          ],
+          "description": "血量档位持续输出独占这条通道。一条通道同时只能有一种输出：单次受击与死亡脉冲必须走另一条；若你选了同一条，插件按「持续优先」让脉冲让路，并把这里同步改成实际值。"
+        },
+        {
+          "key": "a_70_strength",
+          "type": "number",
+          "label": "70% 档强度（郊狼值）",
+          "default": 20,
+          "min": 0,
+          "max": 200,
+          "description": "血量低于 70% 时的持续强度；以下均为郊狼强度标准（0-200）"
+        },
+        {
+          "key": "a_50_strength",
+          "type": "number",
+          "label": "50% 档强度（郊狼值）",
+          "default": 30,
+          "min": 0,
+          "max": 200
+        },
+        {
+          "key": "a_30_strength",
+          "type": "number",
+          "label": "30% 档强度（郊狼值）",
+          "default": 40,
+          "min": 0,
+          "max": 200
+        },
+        {
+          "key": "a_doom_strength",
+          "type": "number",
+          "label": "濒死档强度（郊狼值）",
+          "default": 60,
+          "min": 0,
+          "max": 200,
+          "description": "濒死（黑黄条出现）时输出；以濒死标志判定，不用血量是否为 0 代替"
+        },
+        {
+          "key": "a_hold_forever",
+          "type": "bool",
+          "label": "持续输出（一直保持）",
+          "default": true,
+          "description": "关闭后按下方「持续输出上限」自动停止，避免濒死档无限期输出"
+        },
+        {
+          "key": "a_hold_max_s",
+          "type": "duration",
+          "label": "持续输出上限 (秒)",
+          "default": 30
+        }
+      ]
+    },
+    {
+      "section": "⚡ [B] 单次受击脉冲",
+      "fields": [
+        {
+          "key": "b_enable",
+          "type": "bool",
+          "label": "启用单次受击",
+          "default": true,
+          "description": "关闭后立刻切断 B 通道上全部脉冲（含死亡脉冲），A 通道不受影响"
+        },
+        {
+          "key": "b_channel",
+          "type": "select",
+          "label": "输出通道（受击）",
+          "default": "b",
+          "options": [
+            {
+              "value": "a",
+              "label": "A 通道"
+            },
+            {
+              "value": "b",
+              "label": "B 通道"
+            }
+          ],
+          "description": "单次受击的通道，必须与「血量档位持续输出」的通道不同。选成同一条时以持续输出优先：受击会自动改用另一条通道，这里会被改回实际值，日志会写明原因。"
+        },
+        {
+          "key": "b_strength",
+          "type": "number",
+          "label": "受击强度（郊狼值）",
+          "default": 25,
+          "min": 0,
+          "max": 200
+        },
+        {
+          "key": "b_preset",
+          "type": "preset",
+          "label": "受击波形",
+          "default": "CS2-受伤"
+        },
+        {
+          "key": "b_duration_ms",
+          "type": "number",
+          "label": "受击时长 (ms)",
+          "default": 300,
+          "min": 50,
+          "max": 3000,
+          "step": 50
+        },
+        {
+          "key": "b_refractory_ms",
+          "type": "number",
+          "label": "不应期 / 连发合并 (ms)",
+          "default": 200,
+          "min": 50,
+          "max": 1000,
+          "step": 10,
+          "description": "窗口内的多次扣减合并为一次脉冲；脉冲在途期间的命中一律合并，避免叠加。注意实际频率上限 = max(受击时长, 不应期)"
+        },
+        {
+          "key": "b_hit_min_delta",
+          "type": "number",
+          "label": "单次受击触发阈值（伤害值）",
+          "default": 1500,
+          "min": 0,
+          "max": 20000,
+          "step": 50,
+          "description": "单次掉血 ≥ 该值才发受击脉冲；填 0 = 关掉这条规则。用来过滤散弹弹丸、DoT、环境伤害这类小额掉血"
+        },
+        {
+          "key": "b_burst_delta",
+          "type": "number",
+          "label": "1 秒内累计伤害阈值（伤害值）",
+          "default": 2000,
+          "min": 0,
+          "max": 50000,
+          "step": 100,
+          "description": "滑动窗口内累计掉血 ≥ 该值也发一次脉冲（覆盖「连续小额掉血」的连打）；填 0 = 关掉这条规则。两条规则任一成立即触发，都填 0 则恢复「任何掉血都算受击」的旧行为"
+        },
+        {
+          "key": "b_burst_window_ms",
+          "type": "number",
+          "label": "累计窗口 (ms)",
+          "default": 1000,
+          "min": 200,
+          "max": 5000,
+          "step": 100,
+          "description": "上面「累计伤害」规则用的滑动窗口长度，默认 1000ms（1 秒）"
+        }
+      ]
+    },
+    {
+      "section": "☠️ [E] 死亡脉冲",
+      "fields": [
+        {
+          "key": "e_enable",
+          "type": "bool",
+          "label": "启用死亡脉冲",
+          "default": true
+        },
+        {
+          "key": "e_channel",
+          "type": "select",
+          "label": "输出通道（死亡脉冲）",
+          "default": "b",
+          "options": [
+            {
+              "value": "a",
+              "label": "A 通道"
+            },
+            {
+              "value": "b",
+              "label": "B 通道"
+            }
+          ],
+          "description": "死亡脉冲的通道。可以和「单次受击」共用一条（两者不会同时发生），但不能占用持续输出那条通道；冲突时自动让到脉冲通道并同步改回。"
+        },
+        {
+          "key": "e_strength",
+          "type": "number",
+          "label": "死亡强度（郊狼值）",
+          "default": 45,
+          "min": 0,
+          "max": 200
+        },
+        {
+          "key": "e_duration_ms",
+          "type": "number",
+          "label": "死亡脉冲时长 (ms)",
+          "default": 5000,
+          "min": 500,
+          "max": 15000,
+          "step": 100,
+          "description": "死亡界面出现起算，持续这么久后归零。默认 5000（5 秒）；改动即时生效"
+        },
+        {
+          "key": "e_preset",
+          "type": "preset",
+          "label": "死亡波形（留空 = 恒定）",
+          "default": "",
+          "description": "留空 = 恒定强度持续整个死亡脉冲（不发波形）；想换手感就从 DGHub 波形库挑一个，改动即时生效"
+        }
+      ]
+    },
+    {
+      "section": "🛡️ 安全",
+      "fields": [
+        {
+          "key": "plugin_max_intensity",
+          "type": "number",
+          "label": "插件自身强度上限（郊狼值）",
+          "default": 80,
+          "min": 0,
+          "max": 200,
+          "description": "任何条目都不会超过此值与设备上限中的较小者"
+        },
+        {
+          "key": "estop_key",
+          "type": "select",
+          "label": "急停热键",
+          "default": "F12",
+          "options": [
+            {
+              "value": "F12",
+              "label": "F12"
+            },
+            {
+              "value": "F11",
+              "label": "F11"
+            },
+            {
+              "value": "PAUSE",
+              "label": "Pause"
+            },
+            {
+              "value": "END",
+              "label": "End"
+            },
+            {
+              "value": "off",
+              "label": "关闭急停热键"
+            }
+          ],
+          "description": "按下后两通道立即归零；松开并再次按下可恢复"
+        },
+        {
+          "key": "zero_on_exit",
+          "type": "bool",
+          "label": "退出时两通道归零",
+          "default": true
+        },
+        {
+          "key": "no_signal_zero_s",
+          "type": "duration",
+          "label": "数据失联归零 (秒)",
+          "default": 3
+        }
+      ]
+    },
+    {
+      "section": "🔧 维护",
+      "fields": [
+        {
+          "key": "reassert_now",
+          "type": "select",
+          "label": "立即重发当前输出",
+          "default": "off",
+          "options": [
+            {
+              "value": "off",
+              "label": "不操作"
+            },
+            {
+              "value": "now",
+              "label": "立即重发一次"
+            }
+          ],
+          "description": "输出没恢复时手动补发一次（选完自动复位为「不操作」）。注意：插件自行断开连接后 DGHub 会拒绝重新注册，所以不要用这种方式重建连接 —— 设备重连后的恢复由「定期重发」自动完成"
+        },
+        {
+          "key": "replay_sim",
+          "type": "select",
+          "label": "重播当前演练",
+          "default": "off",
+          "options": [
+            {
+              "value": "off",
+              "label": "不操作"
+            },
+            {
+              "value": "now",
+              "label": "立即重播"
+            }
+          ],
+          "description": "演练剧本（once）播完就会停下；选「立即重播」从头再放一遍，不必关开插件（选完自动复位为「不操作」）。把剧本重新选成同一个值不会触发，因为 DGHub 不推送没变化的配置"
+        },
+        {
+          "key": "reassert_interval_s",
+          "type": "number",
+          "label": "定期重发间隔 (秒)",
+          "default": 3,
+          "min": 0,
+          "max": 120,
+          "step": 1,
+          "description": "郊狼断开/重连后 DGHub 侧强度层的实际值会丢，而插件按「档位+强度」去重，值没变就不再下发 —— 这就是「重连后没输出、要手动关开插件」的原因。插件每隔这么久把当前输出重发一次（幂等，值没变时设备完全无感知；受击/死亡脉冲在途时自动延后），因此重连后最迟这么长时间自动恢复。填 0 关闭"
+        }
+      ]
+    }
+  ]
+}

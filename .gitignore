@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 标定工具产出的本机文件（含本机地址/轨迹，不提交）
+tools/calibration.json
+tools/calibration-trace.json
+tools/calibration-report.txt
+*.log
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# 本地打包产物（安装包走 Releases）
+ttf2_coyote-*.zip

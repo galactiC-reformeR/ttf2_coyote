@@ -1,0 +1,41 @@
+{
+	"Name": "NSCalibDamage",
+	"Description": "内存标定辅助：用快捷键对本地玩家的泰坦施加固定伤害（可反复开始/停止），用于定位血量、濒死标志等内存字段。仅限本地/Northstar 私服自用。",
+	"Version": "1.0.0",
+	"LoadPriority": 0,
+	"ConVars": [
+		{
+			"Name": "ns_calib_allow",
+			"DefaultValue": "1"
+		},
+		{
+			"Name": "ns_calib_amount",
+			"DefaultValue": "100"
+		},
+		{
+			"Name": "ns_calib_interval",
+			"DefaultValue": "0.5"
+		},
+		{
+			"Name": "ns_calib_max_ticks",
+			"DefaultValue": "0"
+		},
+		{
+			"Name": "ns_calib_stop_on_doom",
+			"DefaultValue": "1"
+		},
+		{
+			"Name": "ns_calib_tick_log",
+			"DefaultValue": "1"
+		}
+	],
+	"Scripts": [
+		{
+			"Path": "ns_calib_damage.nut",
+			"RunOn": "SERVER",
+			"ServerCallback": {
+				"After": "NSCalibDamage_Init"
+			}
+		}
+	]
+}

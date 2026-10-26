@@ -1,0 +1,66 @@
+{
+  "_note": "条目与全局默认值。可直接被任何语言读取；用户可在 DGHub 面板中覆盖。",
+  "_units": "强度为郊狼强度标准（0-200）；时长为毫秒；tick 为单调毫秒。",
+
+  "items": {
+    "A": {
+      "channel": "A",
+      "type": "level",
+      "tiers": {
+        "A_70":   { "intensity": 20, "waveform": "default-sustain", "durationMs": null },
+        "A_50":   { "intensity": 30, "waveform": "default-sustain", "durationMs": null },
+        "A_30":   { "intensity": 40, "waveform": "default-sustain", "durationMs": null },
+        "A_DOOM": { "intensity": 60, "waveform": "default-sustain", "durationMs": null }
+      },
+      "_durationMs_null_means": "null = 一直持续（无限期推送波形帧）",
+      "rampMs": 0,
+      "_rampMs_note": "0 = 强度瞬时切换；>0 = 档位切换时线性爬升。上限降低时必须忽略此值（安全方向立即生效）。"
+    },
+
+    "B": {
+      "channel": "B",
+      "type": "pulse",
+      "enabled": true,
+      "_enabled_note": "false = 通道 B 立即归零并切断一切在途脉冲（含 E），A 通道不受影响",
+      "intensity": 25,
+      "waveform": "default-pulse",
+      "durationMs": 300,
+      "refractoryMs": 200
+    },
+
+    "E": {
+      "channel": "B",
+      "type": "pulse",
+      "intensity": 45,
+      "waveform": "default-pulse",
+      "durationMs": 5000,
+      "_durationMs_note": "固定值，不暴露给用户"
+    }
+  },
+
+  "global": {
+    "hysteresisPct": 2,
+    "minDwellMs": 0,
+    "tierThresholdsPct": [70, 50, 30],
+    "_tierThresholds_note": "严格小于比较，且用整数交叉相乘：100*health < P*maxHealth",
+    "deathWindowFloorMs": 200,
+    "deathWindowCeilingMs": 8000,
+    "inTitanFalseHoldMs": 500,
+    "muteGateTimeoutMs": 3500,
+    "_muteGateTimeoutMs_note": "处决动画信号丢失时的兜底；建议 = 实测动画时长 + 500ms",
+    "estopHotkey": "F12",
+    "maxIntensityClamp": 80,
+    "_maxIntensityClamp_note": "插件自身的安全钳制上限；用户设备上限优先级更高（取更小者）",
+    "logLevel": "change",
+    "heartbeatMs": 5000,
+    "heartbeatEnabled": false
+  },
+
+  "deviceLimits": {
+    "_note": "不持久化，来源只有设备会话；不可读时全部为 null",
+    "aOut": null,
+    "aAbs": null,
+    "bOut": null,
+    "bAbs": null
+  }
+}

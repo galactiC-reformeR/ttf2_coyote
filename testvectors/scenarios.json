@@ -1,0 +1,2148 @@
+{
+ "_note": "黄金测试向量。引擎是纯函数，可用本文件做完整回归，无需启动游戏、无需设备。",
+ "_format": {
+  "step.tick": "单调毫秒",
+  "step.sample": "对 defaults.sample 的部分覆盖（未列出的字段沿用上一次的值）",
+  "step.limits": "对当前用户上限的部分覆盖（持续生效直到再次改变）",
+  "step.config": "对条目配置的部分覆盖，字段为 { item, slot?, intensity }",
+  "step.switchB / step.estop": "开关与急停的电平",
+  "expect.A / expect.B": "[slot, cfg, eff, clamp, reason]，clamp 为 'none' | 'out:NN' | 'abs:NN'；null 表示本帧无变化（不记录、不下发）",
+  "expect.log / expect.dispatch": "本帧发生记录/下发的通道，取值 'A' | 'B' | 'AB' | ''",
+  "expect.extra": "附加断言信息（如 pulse-end 的 n 与 Δtotal、E 的 dur）"
+ },
+ "defaults": {
+  "sample": {
+   "readOk": true,
+   "epoch": 1,
+   "inTitan": true,
+   "alive": true,
+   "health": 5000,
+   "maxHealth": 5000,
+   "doomed": false,
+   "m25": false
+  },
+  "limits": {
+   "aOut": null,
+   "aAbs": null,
+   "bOut": null,
+   "bAbs": null
+  },
+  "switchB": true,
+  "estop": false,
+  "config": {
+   "A_70": 20,
+   "A_50": 30,
+   "A_30": 40,
+   "A_DOOM": 60,
+   "B_HIT": 25,
+   "E_DEATH": 45,
+   "B_durationMs": 300,
+   "B_refractoryMs": 200,
+   "E_durationMs": 5000,
+   "hysteresisPct": 2,
+   "deathWindowCeilingMs": 8000,
+   "inTitanFalseHoldMs": 500
+  },
+  "_initRule": "整个会话的第一帧，两通道的 reason 一律为 'init'（启动基准行），不论 slot 是什么"
+ },
+ "scenarios": [
+  {
+   "id": "S1-tier-progression-and-hits",
+   "note": "档位递进（>70% → 70 → 50 → 30 → 濒死）、受击脉冲、不应期合并、脉冲自然结束",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 3400
+     },
+     "expect": {
+      "A": [
+       "A_70",
+       20,
+       20,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note_log": "① 泰坦血量 3400/5000（68%）：A 通道进入 70% 档，持续输出"
+    },
+    {
+     "tick": 100,
+     "sample": {
+      "health": 3000
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_HIT",
+       25,
+       25,
+       "none",
+       "hit"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     },
+     "note_log": "② 受到一次攻击：B 通道给一次受击脉冲"
+    },
+    {
+     "tick": 140,
+     "sample": {
+      "health": 2900
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "Δ=100，距上次命中 40ms，在 200ms 不应期内 → 合并，不产生新脉冲"
+    },
+    {
+     "tick": 400,
+     "sample": {
+      "health": 2900
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "n": 2,
+       "dt": 500
+      }
+     }
+    },
+    {
+     "tick": 500,
+     "sample": {
+      "health": 2400
+     },
+     "expect": {
+      "A": [
+       "A_50",
+       30,
+       30,
+       "none",
+       "tier-enter"
+      ],
+      "B": [
+       "B_HIT",
+       25,
+       25,
+       "none",
+       "hit"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note_log": "③ 血量跌破 50%：A 通道切到 50% 档，同时再受击一次"
+    },
+    {
+     "tick": 800,
+     "sample": {
+      "health": 2400
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "n": 1,
+       "dt": 500
+      }
+     }
+    },
+    {
+     "tick": 900,
+     "sample": {
+      "health": 1450
+     },
+     "expect": {
+      "A": [
+       "A_30",
+       40,
+       40,
+       "none",
+       "tier-enter"
+      ],
+      "B": [
+       "B_HIT",
+       25,
+       25,
+       "none",
+       "hit"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note_log": "④ 血量跌破 30%：A 通道切到 30% 档，同时再受击一次"
+    },
+    {
+     "tick": 1200,
+     "sample": {
+      "health": 1450
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     }
+    },
+    {
+     "tick": 1300,
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "tier-enter"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": "A"
+     },
+     "note": "doomed 上升沿：静默重基线，1450 → 0 的跳变不得产生受击",
+     "note_log": "⑤ 泰坦进入濒死：A 通道切到濒死档"
+    },
+    {
+     "tick": 1400,
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     }
+    }
+   ],
+   "once": true
+  },
+  {
+   "id": "S2-termination-then-death-screen",
+   "note": "被处决：动画期间保持濒死档输出（不静音）→ 死亡界面触发 E（45×5000ms）→ 复活 → 重新上机",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note_log": "① 泰坦已濒死：A 通道输出濒死档"
+    },
+    {
+     "tick": 100,
+     "sample": {},
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note_log": "② 处决动画开始：两个通道全部静音"
+    },
+    {
+     "tick": 1200,
+     "sample": {},
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     }
+    },
+    {
+     "tick": 2100,
+     "sample": {
+      "m25": true,
+      "alive": false
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "death-window"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "A",
+      "dispatch": "A"
+     },
+     "note": "泰坦被毁 + 死亡界面：A 走死亡窗口；B 一直是 0，无新日志",
+     "note_log": "③ 死亡界面出现：进入死亡窗口，丢弃这段读数"
+    },
+    {
+     "tick": 2600,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "E_DEATH",
+       45,
+       45,
+       "none",
+       "death-screen"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     },
+     "note": "去抖门槛满足：开窗 + 死亡序列（E 起振）",
+     "note_log": "④ 死亡界面确认：B 通道给一次 45 强度、5 秒的死亡脉冲"
+    },
+    {
+     "tick": 2700,
+     "sample": {
+      "m25": true,
+      "alive": false,
+      "health": 999999
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "窗口内丢弃垃圾读数；E 不中断、不产生受击"
+    },
+    {
+     "tick": 7300,
+     "sample": {
+      "inTitan": false,
+      "alive": true,
+      "doomed": false,
+      "m25": false,
+      "health": 100,
+      "maxHealth": 100
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "复活为铁驭（doomed 必须一并清掉）；窗口尚未关闭"
+    },
+    {
+     "tick": 7600,
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "dur": 5000
+      }
+     },
+     "note": "E 到期 = 2600 + 5000（纯时间到点，与本帧读数无关）",
+     "note_log": "⑤ 死亡脉冲 5 秒到期"
+    },
+    {
+     "tick": 7900,
+     "sample": {
+      "inTitan": false,
+      "alive": true,
+      "health": 100,
+      "maxHealth": 100
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "no-titan"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": ""
+     },
+     "note": "inTitan=false 持续 600ms ≥ 500ms → 关窗 + 重基线",
+     "note_log": "⑥ 已弹射出来（不在泰坦内）：A 通道归零"
+    },
+    {
+     "tick": 9000,
+     "sample": {
+      "epoch": 2,
+      "inTitan": true,
+      "alive": true,
+      "health": 5000,
+      "maxHealth": 5000
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "idle"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": ""
+     },
+     "note_log": "⑦ 换上新泰坦：恢复待机"
+    }
+   ],
+   "once": true
+  },
+  {
+   "id": "S3-destroyed-without-animation",
+   "note": "被打爆（无动画）：死亡序列即时开窗覆盖死亡帧，收尾扣减不产生受击",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 100,
+     "sample": {
+      "alive": false
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "death-window"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": "A"
+     },
+     "note": "无收尾扣减，B 不得出现 B_HIT"
+    },
+    {
+     "tick": 200,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "m25 上升沿：进入去抖计时，本帧不得有任何变化（门槛 500ms）"
+    },
+    {
+     "tick": 700,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "E_DEATH",
+       45,
+       45,
+       "none",
+       "death-screen"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     },
+     "note": "去抖门槛满足：开窗 + 死亡序列（E 起振）"
+    },
+    {
+     "tick": 5700,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "dur": 5000
+      }
+     },
+     "note": "去抖 +500ms 后重算"
+    }
+   ]
+  },
+  {
+   "id": "S4-battery-recovery",
+   "note": "电池恢复：doomed 下降沿 + 血量上升 → 只切档位、不产生任何脉冲；恢复到 75% 时通道 A 停输出",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note_log": "① 泰坦濒死：A 通道输出濒死档"
+    },
+    {
+     "tick": 100,
+     "sample": {
+      "doomed": false,
+      "health": 3000
+     },
+     "expect": {
+      "A": [
+       "A_70",
+       20,
+       20,
+       "none",
+       "recover-refresh"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": "A"
+     },
+     "note": "3000/5000=60%，仍属「70% 档」（阈值是 70/50/30，60% 未跌破 50%）→ 强度 20；断言：不得出现 B_HIT",
+     "note_log": "② 插入电池，泰坦生命值恢复：A 通道按新档位重新输出（恢复不产生受击脉冲）"
+    },
+    {
+     "tick": 200,
+     "sample": {
+      "health": 3750
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "idle"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": "A"
+     },
+     "note_log": "③ 血量回到 75%（高于最高档）：A 通道归零"
+    }
+   ],
+   "once": true
+  },
+  {
+   "id": "S6-hit-switch-off",
+   "note": "受击开关关闭：通道 B 恒为 0（命中被丢弃），A 通道不受影响",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 3400
+     },
+     "expect": {
+      "A": [
+       "A_70",
+       20,
+       20,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 100,
+     "switchB": false,
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "switch-off"
+      ],
+      "log": "B",
+      "dispatch": ""
+     }
+    },
+    {
+     "tick": 200,
+     "sample": {
+      "health": 2900
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "有真实扣减 Δ=500，但开关关闭 → 断言：无 B_HIT、不缓存不补发"
+    },
+    {
+     "tick": 300,
+     "switchB": true,
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "idle"
+      ],
+      "log": "B",
+      "dispatch": ""
+     },
+     "note": "断言：重新开启不补发"
+    }
+   ]
+  },
+  {
+   "id": "S7-user-limits-clamp",
+   "note": "限幅：濒死档 cfg=60 被用户输出上限削到 40；配置变化但生效强度不变时只记日志不下发；上限降到 30 就地改强度；上限=0 视为通道停用",
+   "steps": [
+    {
+     "tick": 0,
+     "limits": {
+      "aOut": 40,
+      "aAbs": 200,
+      "bOut": 200,
+      "bAbs": 200
+     },
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       40,
+       "out:40",
+       "clamp"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 100,
+     "config": {
+      "item": "A",
+      "slot": "A_DOOM",
+      "intensity": 40
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       40,
+       40,
+       "none",
+       "cfg-change"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": ""
+     },
+     "note": "关键断言：配置 60→40 后 eff 仍为 40（因为上限也是 40）→ 不重新下发，但必须记日志"
+    },
+    {
+     "tick": 200,
+     "limits": {
+      "aOut": 30
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       40,
+       30,
+       "out:30",
+       "clamp"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": "A"
+     },
+     "note": "上限降低必须立即生效、禁止平滑"
+    },
+    {
+     "tick": 300,
+     "limits": {
+      "bOut": 0
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "ch-disabled"
+      ],
+      "log": "B",
+      "dispatch": ""
+     }
+    },
+    {
+     "tick": 400,
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     }
+    }
+   ]
+  },
+  {
+   "id": "S8-garbage-reads-fail-closed",
+   "note": "垃圾读数：读取失败不得被当成 0 血量；超范围、负值、元组矛盾一律作废；连续 Invalid 触发重定位",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 3400
+     },
+     "expect": {
+      "A": [
+       "A_70",
+       20,
+       20,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 100,
+     "sample": {
+      "readOk": false
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "invalid"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "invalid"
+      ],
+      "log": "AB",
+      "dispatch": "A"
+     },
+     "note": "关键断言：不得出现 B_HIT（失败 ≠ 0 血量）"
+    },
+    {
+     "tick": 108,
+     "sample": {
+      "readOk": true,
+      "health": 3400
+     },
+     "expect": {
+      "A": [
+       "A_70",
+       20,
+       20,
+       "none",
+       "tier-enter"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "idle"
+      ],
+      "log": "AB",
+      "dispatch": "A"
+     }
+    },
+    {
+     "tick": 200,
+     "sample": {
+      "health": 7200
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "invalid"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "invalid"
+      ],
+      "log": "AB",
+      "dispatch": "A"
+     },
+     "note": "health > maxHealth → Invalid"
+    },
+    {
+     "tick": 300,
+     "sample": {
+      "health": 7200,
+      "doomed": true,
+      "alive": false
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "doomed ∧ 已死亡 → 元组矛盾 → 仍是 Invalid，状态不变"
+    },
+    {
+     "tick": 400,
+     "sample": {
+      "health": -1,
+      "doomed": false,
+      "alive": true
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     }
+    },
+    {
+     "tick": 500,
+     "sample": {
+      "health": -1
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     }
+    },
+    {
+     "tick": 600,
+     "sample": {
+      "health": -1
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "extra": {
+      "engineFlag": {
+       "needs_relocate": true
+      }
+     },
+     "note": "连续 Invalid 达到阈值 → needs_relocate = true（引擎标志，不产生日志行）"
+    }
+   ]
+  },
+  {
+   "id": "S9-death-window-discards-slot-reuse",
+   "note": "死亡窗口内丢弃槽位复用产生的「合法数值」：不得产生受击、不得重基线、不得切档位、E 不中断",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 100,
+     "sample": {
+      "alive": false
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "death-window"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": "A"
+     }
+    },
+    {
+     "tick": 200,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "m25 上升沿：进入去抖计时，本帧不得有任何变化（门槛 500ms）"
+    },
+    {
+     "tick": 700,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "E_DEATH",
+       45,
+       45,
+       "none",
+       "death-screen"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     },
+     "note": "去抖门槛满足：开窗 + 死亡序列（E 起振）"
+    },
+    {
+     "tick": 1000,
+     "sample": {
+      "epoch": 1,
+      "health": 4500,
+      "maxHealth": 5000,
+      "doomed": false,
+      "alive": true,
+      "inTitan": true,
+      "m25": false
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "槽位复用：血量 4500 完全合法，范围校验拦不住，只能靠死亡窗口 + epoch"
+    },
+    {
+     "tick": 5700,
+     "sample": {
+      "health": 4500,
+      "epoch": 1
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "dur": 5000
+      }
+     },
+     "note": "E 到期 = 200 + 5000；去抖 +500ms 后重算"
+    },
+    {
+     "tick": 7100,
+     "sample": {
+      "epoch": 2,
+      "health": 4500,
+      "maxHealth": 5000
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "idle"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": ""
+     },
+     "note": "epoch 变化 → 无条件关窗 + 重基线"
+    }
+   ]
+  },
+  {
+   "id": "S10-refractory-coalescing",
+   "note": "不应期合并：200ms 窗口内 4 次扣减只产生 1 次脉冲，结束行带合并计数与总扣减",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 5000
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note_log": "① 满血泰坦：两个通道都没有输出"
+    },
+    {
+     "tick": 100,
+     "sample": {
+      "health": 4700
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_HIT",
+       25,
+       25,
+       "none",
+       "hit"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     },
+     "note_log": "② 开始连续受击：B 通道只给一次脉冲"
+    },
+    {
+     "tick": 130,
+     "sample": {
+      "health": 4600
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     }
+    },
+    {
+     "tick": 160,
+     "sample": {
+      "health": 4550
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     }
+    },
+    {
+     "tick": 190,
+     "sample": {
+      "health": 4500
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note_log": "③ 不应期内的后续掉血被合并，不再重复发脉冲"
+    },
+    {
+     "tick": 400,
+     "sample": {
+      "health": 4500
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "n": 4,
+       "dt": 500
+      }
+     },
+     "note_log": "④ 300ms 脉冲到期"
+    },
+    {
+     "tick": 430,
+     "sample": {
+      "health": 4200
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_HIT",
+       25,
+       25,
+       "none",
+       "hit"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     },
+     "note": "距上次命中 330ms > 200ms → 新脉冲",
+     "note_log": "⑤ 超过不应期后再受击：给新的一次脉冲"
+    }
+   ],
+   "once": true
+  },
+  {
+   "id": "S11-switch-off-cuts-in-flight-E",
+   "note": "方案 A：受击开关关闭时切断通道 B 上一切脉冲，含在途的 E；切断后不补发、不再有 pulse-end 行",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 100,
+     "sample": {
+      "alive": false
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "death-window"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": "A"
+     }
+    },
+    {
+     "tick": 200,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "m25 上升沿：进入去抖计时，本帧不得有任何变化（门槛 500ms）"
+    },
+    {
+     "tick": 700,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "E_DEATH",
+       45,
+       45,
+       "none",
+       "death-screen"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     },
+     "note": "去抖门槛满足：开窗 + 死亡序列（E 起振）"
+    },
+    {
+     "tick": 1500,
+     "switchB": false,
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "switch-off"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     },
+     "note": "E 在途被切断，结束行以 switch-off 记录（无 dur 字段）"
+    },
+    {
+     "tick": 5700,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "E 起点后移 500ms，原定到期时刻（5200）不得产生任何行"
+    }
+   ]
+  },
+  {
+   "id": "S12-estop",
+   "note": "全局急停：优先级高于一切条目，两通道同时归零；解除后按当前状态恢复",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 0,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 100,
+     "estop": true,
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "estop"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "estop"
+      ],
+      "log": "AB",
+      "dispatch": "A"
+     },
+     "note": "B 本就空闲，故只有 A 需要下发归零"
+    },
+    {
+     "tick": 200,
+     "estop": false,
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "tier-enter"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "idle"
+      ],
+      "log": "AB",
+      "dispatch": "A"
+     }
+    }
+   ]
+  },
+  {
+   "id": "S13-huge-single-deduction-is-state-change",
+   "note": "单次扣减超过最大血量的 epoch_jump_pct（默认 50%）→ 判为换机/上下机/泰坦被摧毁，静默重基线，不产生受击脉冲（未标定 alive/m25 时防止泰坦爆炸误发电击）",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 12500,
+      "maxHealth": 12500
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 100,
+     "sample": {
+      "health": 7000
+     },
+     "expect": {
+      "A": [
+       "A_70",
+       20,
+       20,
+       "none",
+       "tier-enter"
+      ],
+      "B": [
+       "B_HIT",
+       25,
+       25,
+       "none",
+       "hit"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note": "Δ=5500，未超 6250（50%）→ 正常受击"
+    },
+    {
+     "tick": 400,
+     "sample": {
+      "health": 7000
+     },
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "n": 1,
+       "dt": 5500
+      }
+     }
+    },
+    {
+     "tick": 600,
+     "sample": {
+      "health": 500
+     },
+     "expect": {
+      "A": [
+       "A_30",
+       40,
+       40,
+       "none",
+       "tier-enter"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": "A"
+     },
+     "note": "Δ=6500 > 6250 → 静默重基线：B 不产生脉冲（断言），A 照常落档"
+    }
+   ]
+  },
+  {
+   "id": "S14-death-screen-blip-must-not-fire",
+   "note": "实测：泰坦被毁那一帧「死亡界面」标志会瞬时抖动约 0.3 秒；去抖门槛内不得开窗、不得发死亡脉冲",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 3000,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 400,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "抖动开始：启动去抖计时，本帧不动作"
+    },
+    {
+     "tick": 700,
+     "sample": {
+      "m25": false
+     },
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "抖动 300ms 后消失（< 门槛）—— 全程不得出现 E_DEATH"
+    },
+    {
+     "tick": 7600,
+     "sample": {},
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     },
+     "note": "抖动不得留下任何残留状态"
+    }
+   ]
+  },
+  {
+   "id": "S15-on-foot-death-also-pulses",
+   "note": "需求确认：E 死亡脉冲在**任何**死亡界面出现时都发，不要求死亡瞬间在泰坦内",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "inTitan": false,
+      "health": 100,
+      "maxHealth": 100
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note": "步行铁驭：不在泰坦内"
+    },
+    {
+     "tick": 500,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "no-titan"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "A",
+      "dispatch": ""
+     },
+     "note": "死亡界面出现 → 进入去抖计时"
+    },
+    {
+     "tick": 1000,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "death-window"
+      ],
+      "B": [
+       "E_DEATH",
+       45,
+       45,
+       "none",
+       "death-screen"
+      ],
+      "log": "AB",
+      "dispatch": "B"
+     },
+     "note": "去抖期满 → 死亡脉冲起振（步行阵亡也要发）"
+    },
+    {
+     "tick": 6000,
+     "sample": {
+      "m25": true
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "no-titan"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "AB",
+      "dispatch": "B",
+      "extra": {
+       "dur": 5000
+      }
+     },
+     "note": "E 到期 = 1000 + 5000"
+    }
+   ]
+  },
+  {
+   "id": "S16-mount-dismount-doom-transitions-are-valid",
+   "note": "实测修复：上下机与进濒死会让血量/最大值同步跳变，早先被「同一纪元内变化超过最大值」误判为垃圾读数，导致 A 通道整段被 fail-closed 关掉（濒死档 60 发不出来）",
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 12500,
+      "maxHealth": 12500,
+      "inTitan": true,
+      "doomed": false,
+      "alive": true
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note": "基准：满血泰坦"
+    },
+    {
+     "tick": 200,
+     "sample": {
+      "health": 100,
+      "maxHealth": 100,
+      "inTitan": false
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "no-titan"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "A",
+      "dispatch": ""
+     },
+     "note": "① 下机：血量 12500→100、最大值也变 —— 不是垃圾读数，不得判 invalid"
+    },
+    {
+     "tick": 400,
+     "sample": {
+      "health": 12500,
+      "maxHealth": 12500,
+      "inTitan": true
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "idle"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "A",
+      "dispatch": ""
+     },
+     "note": "① 上机：100→12500 —— 同样不得判 invalid"
+    },
+    {
+     "tick": 600,
+     "sample": {
+      "health": 2500,
+      "maxHealth": 2500,
+      "doomed": true
+     },
+     "expect": {
+      "A": [
+       "A_DOOM",
+       60,
+       60,
+       "none",
+       "tier-enter"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "A",
+      "dispatch": "A"
+     },
+     "note": "② 进濒死：最大值变成濒死池 2500 —— 必须放行且给出濒死档 60"
+    },
+    {
+     "tick": 800,
+     "sample": {
+      "health": -99,
+      "maxHealth": 100
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "invalid"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "invalid"
+      ],
+      "log": "AB",
+      "dispatch": "A"
+     },
+     "note": "负血量：这才是真正的垃圾读数，必须 fail-closed 判 invalid"
+    },
+    {
+     "tick": 1000,
+     "sample": {
+      "health": 3000,
+      "maxHealth": 12500,
+      "doomed": false
+     },
+     "expect": {
+      "A": [
+       "A_30",
+       40,
+       40,
+       "none",
+       "recover-refresh"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "idle"
+      ],
+      "log": "AB",
+      "dispatch": "A"
+     },
+     "note": "回到正常：重新建立基线"
+    }
+   ]
+  },
+  {
+   "id": "S17-invalid-frame-must-not-fire-death-pulse",
+   "note": "无效帧不得点亮死亡脉冲：m25 上升沿必须先过元组校验，否则一次错位读数就能换来 5 秒真实刺激",
+   "steps": [
+    {
+     "tick": 0,
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     },
+     "note": "基线：满血泰坦，无输出"
+    },
+    {
+     "tick": 600,
+     "sample": {
+      "health": 999999,
+      "m25": true
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "invalid"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "invalid"
+      ],
+      "log": "AB",
+      "dispatch": ""
+     },
+     "note": "超范围读数（999999 > 最大 5000）判无效：m25 已翻转也不得启动死亡脉冲"
+    },
+    {
+     "tick": 1200,
+     "sample": {
+      "health": 5000,
+      "m25": true
+     },
+     "expect": {
+      "A": [
+       "A_NONE",
+       0,
+       0,
+       "none",
+       "death-window"
+      ],
+      "B": [
+       "E_DEATH",
+       45,
+       45,
+       "none",
+       "death-screen"
+      ],
+      "log": "AB",
+      "dispatch": "B"
+     },
+     "note": "读数恢复有效才落地：m25 已保持 600ms（≥500ms 去抖）→ 死亡脉冲起振"
+    },
+    {
+     "tick": 6200,
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "dur": 5000
+      }
+     },
+     "note": "E 到期 = 1200 + 5000"
+    }
+   ]
+  },
+  {
+   "id": "R1-rehearsal-30-battery-50",
+   "note": "演练用：30% 档两通道各出一次 → 插电池恢复 → 50% 档两通道各出一次 → 结束。once=true 只跑一次",
+   "once": true,
+   "steps": [
+    {
+     "tick": 0,
+     "sample": {
+      "health": 3700,
+      "maxHealth": 12500,
+      "inTitan": true,
+      "alive": true,
+      "doomed": false,
+      "m25": false
+     },
+     "note": "泰坦 3700/12500 = 29.6% → A 通道 30% 档（郊狼值 40）",
+     "expect": {
+      "A": [
+       "A_30",
+       40,
+       40,
+       "none",
+       "init"
+      ],
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "init"
+      ],
+      "log": "AB",
+      "dispatch": "AB"
+     }
+    },
+    {
+     "tick": 300,
+     "sample": {
+      "health": 3650
+     },
+     "note": "受击 50 → B 通道单次脉冲（25）",
+     "expect": {
+      "A": null,
+      "B": [
+       "B_HIT",
+       25,
+       25,
+       "none",
+       "hit"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     }
+    },
+    {
+     "tick": 700,
+     "note": "B 脉冲 300ms 到期",
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "n": 1,
+       "dt": 50
+      }
+     }
+    },
+    {
+     "tick": 1200,
+     "note_log": "插入电池，泰坦生命值恢复",
+     "note": "电池提示行：只输出这句话，不改任何状态",
+     "expect": {
+      "A": null,
+      "B": null,
+      "log": "",
+      "dispatch": ""
+     }
+    },
+    {
+     "tick": 1400,
+     "sample": {
+      "health": 6200
+     },
+     "note": "恢复到 6200/12500 = 49.6% → A 通道 50% 档（30）；恢复不产生受击脉冲",
+     "expect": {
+      "A": [
+       "A_50",
+       30,
+       30,
+       "none",
+       "recover-refresh"
+      ],
+      "B": null,
+      "log": "A",
+      "dispatch": "A"
+     }
+    },
+    {
+     "tick": 1700,
+     "sample": {
+      "health": 6150
+     },
+     "note": "受击 50 → B 通道单次脉冲（25）",
+     "expect": {
+      "A": null,
+      "B": [
+       "B_HIT",
+       25,
+       25,
+       "none",
+       "hit"
+      ],
+      "log": "B",
+      "dispatch": "B"
+     }
+    },
+    {
+     "tick": 2100,
+     "note": "B 脉冲到期 → 演练结束（once：不再重播）",
+     "expect": {
+      "A": null,
+      "B": [
+       "B_NONE",
+       0,
+       0,
+       "none",
+       "pulse-end"
+      ],
+      "log": "B",
+      "dispatch": "B",
+      "extra": {
+       "n": 1,
+       "dt": 50
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "globalAssertions": [
+  "任何一行的 eff 都不得超过用户上限",
+  "每个 slot 的 eff 必须等于 min(cfg, 输出上限, 绝对上限)；不等时 clamp 必须非 none",
+  "eff > 0 的行 reason 必须非阻断类；eff == 0 的行 reason 必须是阻断类或 slot 为 A_NONE / B_NONE",
+  "静音门窗口内不得出现任何 eff > 0 的行",
+  "受击开关关闭期间不得出现 B_HIT",
+  "E_DEATH 起振行的 dur 必须恰为 5000ms，且必须有一条对应的结束行（pulse-end / switch-off / estop / device-lost）",
+  "同一 slot 连续两行之间必须存在 (slot,cfg,eff,clamp,reason) 的键变化",
+  "cfg 变化必须至少产生一行日志（即使 eff 未变）",
+  "只有 readOk=false、超范围、负值、元组矛盾、epoch 未变而幅度不可能 这几类才允许出现 invalid",
+  "恢复（血量上升 / doomed 下降沿）不得产生 B_HIT"
+ ]
+}

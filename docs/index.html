@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ttf2_coyote · 泰坦陨落 2 联动 | 把泰坦血量变成真实体感</title>
+<meta name="description" content="DGHub 外部插件 ttf2_coyote：把《泰坦陨落 2》的泰坦血量变化映射为郊狼电刺激。进程内存只读轮询，不注入、不读屏；内存定位已内置，装上即用。">
+<meta name="theme-color" content="#06090f">
+<meta property="og:title" content="ttf2_coyote · 泰坦陨落 2 联动">
+<meta property="og:description" content="泰坦血量 → 郊狼双通道。只读内存、定位内置、fail-closed。">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1017'/%3E%3Cpath d='M4 19h5l3-9 4 14 3-9h3l2 4h4' fill='none' stroke='%23ff7a1a' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="bg-scan" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top" aria-label="回到顶部">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1" y="1" width="38" height="38" rx="9" fill="none" stroke="rgba(255,122,26,.45)"/>
+        <path d="M6 24h6l3.5-11L20 30l3.5-11h4l2 5h5" fill="none" stroke="#ff7a1a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+      <span class="brand-text">
+        <b>ttf2_coyote</b>
+        <i>泰坦陨落 2 联动</i>
+      </span>
+    </a>
+
+    <nav class="nav-links" id="navLinks">
+      <a href="#channels">通道映射</a>
+      <a href="#tiers">档位与强度</a>
+      <a href="#features">特性</a>
+      <a href="#config">参数</a>
+      <a href="#install">安装</a>
+      <a href="#troubleshoot">排查</a>
+      <a href="#changelog">版本</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+
+    <div class="nav-right">
+      <span class="ver-chip" title="当前版本">v2.20.5</span>
+      <a class="btn btn-ghost btn-sm" href="#install">开始安装</a>
+      <button class="nav-toggle" id="navToggle" aria-label="展开导航" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="wrap hero-inner">
+      <div class="hero-copy">
+        <p class="kicker reveal">DGHub 外部插件 · SDK v1 · 进程内存只读轮询</p>
+        <h1 class="reveal">
+          把泰坦的<span class="hl">血量</span><br>
+          变成你的<span class="hl2">体感</span>
+        </h1>
+        <p class="lead reveal">
+          《泰坦陨落 2》泰坦血量的数值变化，实时映射成郊狼两通道的强度输出。
+          不注入进程、不写游戏内存、不读屏幕。
+          内存定位已经内置，把目录丢进 <code>D:\dghub\plugins</code> 就能开打。
+        </p>
+
+        <div class="hero-actions reveal">
+          <a class="btn btn-primary" href="#install">三步装好</a>
+          <a class="btn btn-ghost" href="#concept">用模拟数据先跑一遍</a>
+        </div>
+
+        <dl class="stats reveal">
+          <div><dt>采样间隔</dt><dd>8<small>ms</small></dd></div>
+          <div><dt>输出通道</dt><dd>2<small>条</small></dd></div>
+          <div><dt>黄金场景</dt><dd>17<small>个</small></dd></div>
+          <div><dt>手动标定</dt><dd>0<small>项</small></dd></div>
+        </dl>
+
+        <ul class="hero-tags reveal">
+          <li>只 PROCESS_VM_READ</li>
+          <li>fail-closed</li>
+          <li>重连自愈</li>
+          <li>演练模式</li>
+          <li>面板全可调</li>
+        </ul>
+      </div>
+
+      <div class="hero-panel reveal">
+        <div class="term" id="term">
+          <div class="term-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="term-title">DGHub · ttf2_coyote 变更日志</span>
+            <span class="term-live" id="termLive"><em></em>运行中</span>
+          </div>
+
+          <div class="term-body">
+            <div class="hp-row">
+              <span class="hp-label">泰坦血量</span>
+              <div class="hp-bar"><span id="hpFill"></span><span class="hp-marks"><i></i><i></i><i></i></span></div>
+              <span class="hp-num" id="hpNum">12500 / 12500</span>
+            </div>
+
+            <div class="chan-row">
+              <div class="chan" data-ch="a">
+                <header><span class="chan-name">A 通道</span><span class="chan-mode">电平 · 持续</span></header>
+                <div class="meter"><span id="meterA"></span></div>
+                <footer><span id="slotA">A_NONE</span><span id="valA">0</span></footer>
+              </div>
+              <div class="chan" data-ch="b">
+                <header><span class="chan-name">B 通道</span><span class="chan-mode">脉冲</span></header>
+                <div class="meter"><span id="meterB"></span></div>
+                <footer><span id="slotB">B_NONE</span><span id="valB">0</span></footer>
+              </div>
+            </div>
+
+            <pre class="log" id="log" aria-live="polite"></pre>
+          </div>
+
+          <div class="term-foot">
+            <span id="scenarioName">剧本 S1：档位递进 + 受击 + 濒死</span>
+            <button class="mini-btn" id="replayBtn" type="button">重新演练</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 数据流 ============ -->
+  <section class="section" id="concept">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">工作方式</p>
+        <h2>一条只读链路，两个物理通道</h2>
+        <p class="lead">每 8ms 读一次内存，喂给纯状态机判断，唯一出口是一条 WebSocket 的 <code>set_strength</code>。中间没有注入、没有截图、没有第二跳。</p>
+      </header>
+
+      <ol class="flow reveal">
+        <li>
+          <span class="flow-idx">01</span>
+          <h3>游戏进程</h3>
+          <p><code>Titanfall2.exe</code> / <code>NorthstarLauncher.exe</code>，插件自动识别，也能自己填进程名。</p>
+        </li>
+        <li>
+          <span class="flow-idx">02</span>
+          <h3>只读轮询</h3>
+          <p><code>ReadProcessMemory</code> 取血量、最大血量、濒死标志、是否在泰坦内、死亡界面标志。</p>
+        </li>
+        <li>
+          <span class="flow-idx">03</span>
+          <h3>状态机</h3>
+          <p>档位切换、受击判定、死亡窗口、通道互斥、限幅与去重，全部在这一层，纯逻辑、可离线测试。</p>
+        </li>
+        <li>
+          <span class="flow-idx">04</span>
+          <h3>郊狼双通道</h3>
+          <p>A 通道给电平式持续强度，B 通道给受击与死亡脉冲。断开重连自动恢复输出。</p>
+        </li>
+      </ol>
+
+      <div class="note reveal">
+        <b>为什么不用读屏？</b>
+        血条像素会被画面设置、分辨率、HUD 缩放和叠加层影响，误判代价直接落在身上。数值变化是确定的，直接读数值。
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 通道映射 ============ -->
+  <section class="section section-alt" id="channels">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">通道映射</p>
+        <h2>三个条目，两种输出形态</h2>
+        <p class="lead">持续型和脉冲型各占一条通道：它们操作同一条强度层，压在一起会互相覆盖，所以插件自己强制分家。</p>
+      </header>
+
+      <div class="cards reveal">
+        <article class="card card-a">
+          <header><span class="badge badge-a">A</span><h3>血量档位</h3><span class="chip">电平 · 持续</span></header>
+          <p>血量跨过阈值才改强度，一直保持。70% / 50% / 30% / 濒死四档，默认 <b>20 / 30 / 40 / 60</b>。</p>
+          <ul class="ticks">
+            <li>回血按新档位重新输出，本身不发脉冲</li>
+            <li>2% 滞回，避免临界点反复横跳</li>
+            <li>泰坦被毁那一帧不会误判成巨额受击</li>
+          </ul>
+        </article>
+
+        <article class="card card-b">
+          <header><span class="badge badge-b">B</span><h3>单次受击</h3><span class="chip">脉冲 · 可关</span></header>
+          <p>一次掉血给一次脉冲，默认强度 <b>25</b>、时长 300ms，可单独关掉。</p>
+          <ul class="ticks">
+            <li>单次掉血 ≥ 1500 才触发，滤掉散弹弹丸与环境伤害</li>
+            <li>1 秒内累计 ≥ 2000 也算一次，覆盖连打</li>
+            <li>频率上限约 3.3 次/秒，在途的伤害合并成一次</li>
+          </ul>
+        </article>
+
+        <article class="card card-e">
+          <header><span class="badge badge-e">E</span><h3>死亡脉冲</h3><span class="chip">脉冲 · 独占</span></header>
+          <p>死亡界面出现后给一次持续输出，默认强度 <b>45</b>、时长 5 秒，0.5 到 15 秒可调。</p>
+          <ul class="ticks">
+            <li>任何死亡界面都发，步行阵亡也一样</li>
+            <li>泰坦被毁那一帧标志位只抖 0.3 秒，内置 500ms 去抖挡掉误触发</li>
+            <li>波形留空 = 恒定，也可以自己选</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="split reveal">
+        <div>
+          <h3 class="h-s">规则：一组一条通道</h3>
+          <p>持续输出必须独占一条通道，受击与死亡脉冲可以合用另一条（它们不会同时发生）。把脉冲选到持续通道上时，插件按持续输出优先处理，脉冲自动改用另一条，并把界面上的值改回实际值，同时写一条 warning 说明原因。</p>
+        </div>
+        <div>
+          <h3 class="h-s">改通道即时生效</h3>
+          <p>切换通道时插件先把两条通道归零，再按新映射重新下发，不会把上一次的档位强度残留在被释放的通道上。模拟模式下重叠则直接拒绝本次演练输出，方便你在真机之前就发现配错。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 档位与强度 ============ -->
+  <section class="section" id="tiers">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">档位与强度</p>
+        <h2>换算只有一个公式</h2>
+        <p class="lead"><code>pct = 郊狼值 × 100 ÷ 该通道上限</code>。上限取错会让所有强度按比例偏移，所以上限不可配置，只有设备上报和固定 100 两个来源。</p>
+      </header>
+
+      <div class="tier-table reveal">
+        <table>
+          <thead>
+            <tr><th>血量档位</th><th>触发条件</th><th>默认强度（郊狼值）</th><th>输出形态</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="tier t70">70%</span></td><td>血量低于最大血量 70%</td><td><b>20</b></td><td>电平保持</td></tr>
+            <tr><td><span class="tier t50">50%</span></td><td>血量低于最大血量 50%</td><td><b>30</b></td><td>电平保持</td></tr>
+            <tr><td><span class="tier t30">30%</span></td><td>血量低于最大血量 30%</td><td><b>40</b></td><td>电平保持</td></tr>
+            <tr><td><span class="tier tdoom">濒死</span></td><td>标志位成立且血量 ≤ 25%，或最大血量塌缩</td><td><b>60</b></td><td>电平保持</td></tr>
+            <tr><td><span class="tier tb">受击</span></td><td>单次 ≥ 1500 或 1 秒累计 ≥ 2000</td><td><b>25</b></td><td>脉冲 300ms</td></tr>
+            <tr><td><span class="tier te">死亡</span></td><td>死亡界面标志稳定 500ms</td><td><b>45</b></td><td>脉冲 5000ms</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="facts reveal">
+        <div class="fact">
+          <h3>换机体不用改配置</h3>
+          <p>判定按<b>比值</b>做，不认绝对血量。五种机体真实最大血量 7500 / 10000 / 12500 / 15000 / 17500 全部适用，3 到 7 格血条都能打。</p>
+        </div>
+        <div class="fact">
+          <h3>濒死用双判据</h3>
+          <p>标志位是<b>位域</b>而不是布尔：同一局里实测到正常 2 → 濒死 3、正常 0 → 濒死 1，所以按掩码比较。再加一道血量门槛和"最大血量塌缩"判据，覆盖"上机时人已经在濒死泰坦里"。</p>
+        </div>
+        <div class="fact">
+          <h3>上限只在注册时上报</h3>
+          <p>DGHub 只在插件注册那一刻推一次设备信息。上报失败时插件按固定 100 换算，与郊狼 V3 实际上限一致。想要最准的换算，就在郊狼已连接的状态下启用插件。</p>
+        </div>
+        <div class="fact">
+          <h3>插件自身上限 80</h3>
+          <p>任何条目都不会超过插件自身上限（默认 80，可改）。日志里 <code>cfg</code> 是你配的值，<code>eff</code> 是实际下发的值，两者不等时 <code>clamp</code> 会写明被谁削顶。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 特性 ============ -->
+  <section class="section section-alt" id="features">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">特性</p>
+        <h2>踩过的坑都焊死在代码里</h2>
+        <p class="lead">以下每一条都来自实机故障，不是纸面设计。</p>
+      </header>
+
+      <div class="grid reveal">
+        <article class="fcard">
+          <span class="ico">◆</span>
+          <h3>内存定位已内置</h3>
+          <p>地址写在代码里，装完就能用，不用 Cheat Engine、不用填偏移。配置页里已经没有"内存定位"区。</p>
+        </article>
+        <article class="fcard">
+          <span class="ico">◆</span>
+          <h3>只读，不注入</h3>
+          <p>只申请 <code>PROCESS_VM_READ</code>，绝不写游戏内存，也不往游戏里挂任何东西。</p>
+        </article>
+        <article class="fcard">
+          <span class="ico">◆</span>
+          <h3>fail-closed</h3>
+          <p>读到无效数据时不产生任何脉冲，宁可漏报绝不误报。连续 5 帧无效才提示，恢复稳定 3 秒后自动撤销。</p>
+        </article>
+        <article class="fcard">
+          <span class="ico">◆</span>
+          <h3>重连自愈</h3>
+          <p>郊狼断开再连上后不需要关开插件：每 3 秒幂等重发当前输出，脉冲在途时自动延后，值没变化设备侧完全无感知。</p>
+        </article>
+        <article class="fcard">
+          <span class="ico">◆</span>
+          <h3>演练模式</h3>
+          <p>一个包都不发，只把"本来会下发的命令"写进日志，波形名和换算后的百分比都能先核对。</p>
+        </article>
+        <article class="fcard">
+          <span class="ico">◆</span>
+          <h3>无游戏也能验证</h3>
+          <p>模拟数据源把 17 个战斗剧本按真实时间轴回放，每步都配中文解说，播完就停。</p>
+        </article>
+        <article class="fcard">
+          <span class="ico">◆</span>
+          <h3>进程自检</h3>
+          <p>读不到数据时插件自己查进程，把"没启动 / 引擎没加载 / 附错进程 / 名字不对"六种情况分别写进日志。</p>
+        </article>
+        <article class="fcard">
+          <span class="ico">◆</span>
+          <h3>离线回归</h3>
+          <p>17 个黄金场景 + 17 个会话用例，不接游戏、不接设备就能跑，改判定逻辑不会被旧行为偷偷救回来。</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 参数 ============ -->
+  <section class="section" id="config">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">参数面板</p>
+        <h2>要调的东西都在 DGHub 面板里</h2>
+        <p class="lead">下面每一行都是 <code>manifest.json</code> 里真实存在的配置项，改完即时生效，不用动代码。</p>
+      </header>
+
+      <div class="acc reveal" id="acc">
+        <details open>
+          <summary><span>⚙️ 基础与数据源</span><em>7 项</em></summary>
+          <div class="acc-body">
+            <table class="kv">
+              <tbody>
+                <tr><td>数据源</td><td>内存只读轮询（正式）/ 模拟数据 / 关闭</td></tr>
+                <tr><td>模拟剧本</td><td>默认 <code>R1</code>，共 17 个剧本可选</td></tr>
+                <tr><td>进程 / 默认模块名</td><td>默认 <code>auto</code>，依次尝试三个同族进程</td></tr>
+                <tr><td>采样间隔 (ms)</td><td><b>8</b></td></tr>
+                <tr><td>演练模式</td><td>关；开启后不向设备发任何命令</td></tr>
+                <tr><td>输出变更日志</td><td>开</td></tr>
+                <tr><td>输出逐帧调试日志</td><td>关</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary><span>🎯 血量档位持续输出</span><em>7 项</em></summary>
+          <div class="acc-body">
+            <table class="kv">
+              <tbody>
+                <tr><td>输出通道（持续）</td><td>A 通道</td></tr>
+                <tr><td>70% 档强度</td><td><b>20</b></td></tr>
+                <tr><td>50% 档强度</td><td><b>30</b></td></tr>
+                <tr><td>30% 档强度</td><td><b>40</b></td></tr>
+                <tr><td>濒死档强度</td><td><b>60</b></td></tr>
+                <tr><td>持续输出（一直保持）</td><td>开</td></tr>
+                <tr><td>持续输出上限 (秒)</td><td>30</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary><span>⚡ 单次受击脉冲</span><em>9 项</em></summary>
+          <div class="acc-body">
+            <table class="kv">
+              <tbody>
+                <tr><td>启用单次受击</td><td>开</td></tr>
+                <tr><td>输出通道（受击）</td><td>B 通道</td></tr>
+                <tr><td>受击强度</td><td><b>25</b></td></tr>
+                <tr><td>受击波形</td><td><code>CS2-受伤</code></td></tr>
+                <tr><td>受击时长 (ms)</td><td>300</td></tr>
+                <tr><td>不应期 / 连发合并 (ms)</td><td>200</td></tr>
+                <tr><td>单次受击触发阈值</td><td><b>1500</b>（填 0 恢复"任何掉血都算一次"）</td></tr>
+                <tr><td>1 秒内累计伤害阈值</td><td><b>2000</b></td></tr>
+                <tr><td>累计窗口 (ms)</td><td>1000</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary><span>☠️ 死亡脉冲</span><em>5 项</em></summary>
+          <div class="acc-body">
+            <table class="kv">
+              <tbody>
+                <tr><td>启用死亡脉冲</td><td>开</td></tr>
+                <tr><td>输出通道（死亡脉冲）</td><td>B 通道</td></tr>
+                <tr><td>死亡强度</td><td><b>45</b></td></tr>
+                <tr><td>死亡脉冲时长 (ms)</td><td>5000（可调 0.5 到 15 秒）</td></tr>
+                <tr><td>死亡波形（留空 = 恒定）</td><td>留空</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary><span>🛡️ 安全</span><em>4 项</em></summary>
+          <div class="acc-body">
+            <table class="kv">
+              <tbody>
+                <tr><td>插件自身强度上限</td><td><b>80</b></td></tr>
+                <tr><td>急停热键</td><td><b>F12</b>（按下两通道立即归零）</td></tr>
+                <tr><td>退出时两通道归零</td><td>开</td></tr>
+                <tr><td>数据失联归零 (秒)</td><td>3</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary><span>🔧 维护</span><em>3 项</em></summary>
+          <div class="acc-body">
+            <table class="kv">
+              <tbody>
+                <tr><td>立即重发当前输出</td><td>手动触发一次幂等重发</td></tr>
+                <tr><td>重播当前演练</td><td>手动重放当前剧本</td></tr>
+                <tr><td>定期重发间隔 (秒)</td><td><b>3</b>（填 0 关闭）</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 安装 ============ -->
+  <section class="section section-alt" id="install">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">安装</p>
+        <h2>三步，不用装 Python</h2>
+        <p class="lead">插件由 DGHub 用内嵌的 CPython 拉起，运行环境自带。</p>
+      </header>
+
+      <ol class="steps reveal">
+        <li>
+          <span class="step-n">1</span>
+          <h3>放目录</h3>
+          <p>把整个插件目录放到 <code>D:\dghub\plugins\</code> 下，目录名改成 <code>ttf2_coyote</code>。</p>
+          <div class="copy-row">
+            <code id="pathCode">D:\dghub\plugins\ttf2_coyote</code>
+            <button class="mini-btn" type="button" data-label="复制路径" data-copy="D:\dghub\plugins\ttf2_coyote">复制路径</button>
+          </div>
+        </li>
+        <li>
+          <span class="step-n">2</span>
+          <h3>启用插件</h3>
+          <p>DGHub → 设置 → 外部插件 → 扫描 / 刷新 → 打开「泰坦陨落2 联动」。</p>
+        </li>
+        <li>
+          <span class="step-n">3</span>
+          <h3>先跑演练</h3>
+          <p>数据源选「模拟数据」，开「演练模式」和「输出变更日志」，选剧本 <code>S1</code>，对着日志核对两档两通道都出、强度换算对不对。确认后再把数据源切回内存轮询进场。</p>
+        </li>
+      </ol>
+
+      <div class="reqs reveal">
+        <div><h3>运行环境</h3><p>Windows · DGHub（含郊狼设备已连接）· 《泰坦陨落 2》本体或 Northstar 私服</p></div>
+        <div><h3>进程识别</h3><p>自动依次尝试 <code>Titanfall2.exe</code> → <code>NorthstarLauncher.exe</code> → <code>Titanfall2_trial.exe</code>，也可自己填进程名</p></div>
+        <div><h3>内置定位依据</h3><p>对应 <code>engine.dll</code> 9,843,712 字节 / SHA256 前 16 位 <code>58EB1A1B44B30275</code></p></div>
+      </div>
+
+      <div class="warn reveal">
+        <b>改插件文件前先关掉插件开关。</b>
+        DGHub 会监视插件目录，运行中覆盖文件会触发设备快照超时，还可能让插件继续跑旧代码。
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 排查 ============ -->
+  <section class="section" id="troubleshoot">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">排查</p>
+        <h2>没有输出时，先看日志这一行</h2>
+        <p class="lead">变更日志按 <code>(slot, cfg, eff, clamp, reason)</code> 各字段变化时输出一行，<code>reason</code> 会直接告诉你为什么是这个值。</p>
+      </header>
+
+      <div class="log-sample reveal">
+        <pre><code><span class="ln">[12.3] hp=7800/12500 doomed=0 peak=12500 titan=1 alive=1 | ch=a slot=A_70 <em>cfg=20 eff=20</em> clamp=- reason=tier-enter</span>
+<span class="ln">[13.1] hp=2400/12500 doomed=1(collapse) peak=12500 titan=1 alive=1 | ch=a slot=A_DOOM <em>cfg=60 eff=60</em> clamp=- reason=tier-enter</span>
+<span class="ln">[14.0] hp=2500/2500  doomed=1(flag)     peak=2500  titan=1 alive=1 | ch=a slot=A_DOOM <em>cfg=60 eff=60</em> clamp=- reason=tier-enter</span></code></pre>
+        <p><code>doomed=1(flag)</code> 表示濒死由标志位判定，<code>(collapse)</code> 表示由最大血量塌缩判定；<code>peak</code> 是本次驾驶记录到的血量峰值。</p>
+      </div>
+
+      <div class="acc reveal">
+        <details open>
+          <summary><span>完全没有输出</span><em>按顺序看</em></summary>
+          <div class="acc-body">
+            <table class="kv">
+              <tbody>
+                <tr><td>日志每条都带 <code>[演练] 待下发</code></td><td>演练模式还开着，插件一个包都没发 → 关掉演练模式</td></tr>
+                <tr><td>日志写 <code>数据源：模拟数据源</code></td><td>数据源还是剧本，压根没读游戏 → 切成内存只读轮询</td></tr>
+                <tr><td>日志写 <code>内存字段未标定</code></td><td>内置定位读不到（引擎版本变了）→ 跑 <code>tools\calibrate.py</code> 重新定位</td></tr>
+                <tr><td>日志写 <code>reason=no-titan</code> 或 <code>reason=idle</code></td><td>这是正常的没有输出：不在泰坦里，或血量还在最高档之上</td></tr>
+                <tr><td>强度只有配置的一半</td><td>上限按 200 换算导致整体减半 → 在郊狼已连接时重新启用插件</td></tr>
+                <tr><td>日志写 <code>设备未连接</code></td><td>郊狼没连上，或没在插件上重新选输出目标</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary><span>连续读到无效数据</span><em>四种原因</em></summary>
+          <div class="acc-body">
+            <p>连续 5 帧读数被判无效时触发，每 30 秒最多一条，恢复稳定 3 秒后自动撤销。日志会把是哪一条挂了、读的是哪个进程、最近一帧长什么样一起写出来。</p>
+            <table class="kv">
+              <tbody>
+                <tr><td><code>最大血量&lt;=0</code></td><td>不在对局 / 主菜单 / 没坐进泰坦，属正常；一直在泰坦里仍为 0 才需要重新标定</td></tr>
+                <tr><td><code>血量超范围</code> / <code>单次变化超过最大血量</code></td><td>地址错位，引擎构建变了 → 重新标定</td></tr>
+                <tr><td><code>读取失败</code></td><td>游戏进程关了，或句柄 / 模块基址失效 → 重启插件</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details>
+          <summary><span>郊狼重连后没输出</span><em>已修</em></summary>
+          <div class="acc-body">
+            <p>老版本按 <code>(档位, 强度)</code> 去重下发：设备断开期间强度层实际值已归零，但插件缓存没变，于是从此不再下发。现在按 3 秒定期幂等重发，断开重连后最迟一个周期内自动恢复，不用关开插件。</p>
+            <p>顺带说明：日志里 <code>设备目标不可用，命令已丢弃</code> 不是错误，只表示那一刻郊狼没连上。</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 安全 ============ -->
+  <section class="section section-alt" id="safety">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">安全</p>
+        <h2>六道闸，任何一条都能救命</h2>
+      </header>
+
+      <div class="safety-grid reveal">
+        <div class="safe"><h3>只读内存</h3><p>仅 <code>PROCESS_VM_READ</code>，绝不写游戏内存。</p></div>
+        <div class="safe"><h3>急停热键</h3><p>默认 <code>F12</code>，按下两通道立即归零，再按恢复。</p></div>
+        <div class="safe"><h3>插件自身上限</h3><p>默认 80，任何条目都不会超过它。</p></div>
+        <div class="safe"><h3>失联归零</h3><p>数据源失联超过 3 秒，自动切断两通道。</p></div>
+        <div class="safe"><h3>退出归零</h3><p>插件停止或断开时，两通道归零。</p></div>
+        <div class="safe"><h3>fail-closed</h3><p>读到无效数据不产生任何脉冲，宁可漏报。</p></div>
+      </div>
+
+      <p class="disclaimer reveal">电刺激设备的体感差异很大，请从低强度开始、按自己设备的说明使用；出现任何不适立刻按急停热键或断开设备。</p>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="section" id="faq">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">FAQ</p>
+        <h2>常问的几个问题</h2>
+      </header>
+
+      <div class="acc reveal">
+        <details open>
+          <summary><span>会不会写游戏内存？算不算外挂？</span></summary>
+          <div class="acc-body"><p>插件只以只读权限打开游戏进程，读几个数值，不写入、不注入 DLL、不修改游戏文件、不读屏幕。它取得的信息与你眼睛看到血条是同一件事，只是更精确。</p></div>
+        </details>
+        <details>
+          <summary><span>需要装 Python 或者 Cheat Engine 吗？</span></summary>
+          <div class="acc-body"><p>都不需要。插件进程由 DGHub 以 <code>DGLab-Console.exe --plugin-runner main.py</code> 拉起，用的是 DGHub 内嵌的 CPython。Cheat Engine 只在你自己重新标定内存地址时才用得上。</p></div>
+        </details>
+        <details>
+          <summary><span>游戏更新之后还能用吗？</span></summary>
+          <div class="acc-body"><p>内置地址是静态地址（在 <code>engine.dll</code> 数据段，重启游戏、换电脑都不变），但引擎二进制一变就要重新定位。跑一条 <code>python tools\calibrate.py --minutes 4</code> 按提示在控制台打几下伤害，工具会输出新地址；写进 <code>D:\dghub\config.json</code> 本插件段的同名键即可，配置文件的值优先于内置值，不用改代码也不影响下次更新版本。</p></div>
+        </details>
+        <details>
+          <summary><span>我还没买游戏，能先看看效果吗？</span></summary>
+          <div class="acc-body"><p>能。数据源切「模拟数据」，打开「输出变更日志」，选剧本 <code>S1</code>，插件会把血量从 68% 一路掉到濒死的完整过程按真实时间轴回放，每一步配一句中文解说。想连设备实际感受的话，把「演练模式」关掉就是真实下发。</p></div>
+        </details>
+        <details>
+          <summary><span>处决动画期间会给脉冲吗？</span></summary>
+          <div class="acc-body"><p>不会额外给。处决动画期间插件保持濒死档持续输出，受击脉冲照常判断，死亡脉冲只由死亡界面触发，所以己方处决敌方泰坦不会误吃一次死亡脉冲。</p></div>
+        </details>
+        <details>
+          <summary><span>为什么体感强度和面板数字对不上？</span></summary>
+          <div class="acc-body"><p>先看日志里 <code>cfg</code> 与 <code>eff</code> 是否相等，<code>clamp</code> 会说明被谁削顶。再看上限：换算公式是 <code>郊狼值 × 100 ÷ 通道上限</code>，上限取 200 会让所有强度直接减半，所以要确保郊狼已连接后再启用插件。</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 版本轨迹 ============ -->
+  <section class="section section-alt" id="changelog">
+    <div class="wrap">
+      <header class="sec-head reveal">
+        <p class="kicker">版本轨迹</p>
+        <h2>现在的行为是改出来的，不是设计出来的</h2>
+        <p class="lead">每条都对应一次真实故障或一次真实体感偏差。</p>
+      </header>
+
+      <ol class="timeline reveal">
+        <li>
+          <span class="tw">v2.20.5</span>
+          <div>
+            <h3>当前版本</h3>
+            <p>内置定位按 2026-10-17 私服实测更新；濒死改为双判据并支持位掩码，解决"濒死档永远发不出来"和"62% 血量上误判濒死"两个方向的错。</p>
+          </div>
+        </li>
+        <li>
+          <span class="tw">v2.20.0</span>
+          <div>
+            <h3>进程自检</h3>
+            <p>读不到数据时插件自己查一遍进程，把"没启动 / 引擎没加载 / 附错进程 / 名字不存在 / 权限或偏移问题"分别写进日志，不用再猜。</p>
+          </div>
+        </li>
+        <li>
+          <span class="tw">v2.17.0</span>
+          <div>
+            <h3>上限锁死 100</h3>
+            <p>设备上限按 200 换算会让所有强度减半，濒死档最明显。现在默认按 100 换算，与你设备的实际上限一致。</p>
+          </div>
+        </li>
+        <li>
+          <span class="tw">v2.13.0</span>
+          <div>
+            <h3>受击门槛</h3>
+            <p>不是每次掉血都发脉冲：单次 ≥ 1500 或 1 秒内累计 ≥ 2000 才触发，把散弹弹丸、持续伤害和环境伤害滤掉。</p>
+          </div>
+        </li>
+        <li>
+          <span class="tw">更早</span>
+          <div>
+            <h3>推到重做的那几刀</h3>
+            <p>放弃读屏，改进程内存只读轮询；放弃 <code>trigger</code> 的租约，改 <code>set_strength</code> 精确控制脉冲起止；放弃"插件自己断开重连"的自愈方案，改幂等定期重发。</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section class="cta">
+    <div class="wrap cta-inner reveal">
+      <h2>先开演练模式，听一遍整场战斗</h2>
+      <p>零风险：不读游戏、不发命令、只看日志。确认两档两通道都对，再把设备接上。</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#install">安装步骤</a>
+        <a class="btn btn-ghost" href="#config">看参数面板</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <b>ttf2_coyote</b>
+      <span>泰坦陨落 2 联动 · v2.20.5 · DGHub 外部插件 SDK v1 · 作者 许昊龙</span>
+    </div>
+    <nav class="foot-links">
+      <a href="#concept">工作方式</a>
+      <a href="#channels">通道映射</a>
+      <a href="#install">安装</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <p class="foot-note">
+      面向成年用户的自用工具。请仅在你自己可自由使用的对局或私服中启用，遵守游戏服务条款与当地法律；电刺激设备请按自身设备说明从低强度开始使用。
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/site.js"></script>
+</body>
+</html>
