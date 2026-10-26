@@ -1,7 +1,7 @@
-# 泰坦陨落 2 联动（ttf2_coyote）v2.20.5
+# Titanfall 2 x dghub插件
 
-DGHub 外部插件（SDK v1）：把《泰坦陨落 2》泰坦血量的**数值变化**映射为郊狼电刺激。
-数据源是**进程内存只读轮询**——不注入、不写游戏内存、**不读屏**。
+DGHub 外部插件（SDK v1）：Titanfall2多人模式中泰坦血量的**数值变化**映射为郊狼电刺激。
+
 
 介绍页（GitHub Pages）：<https://galactic-reformer.github.io/ttf2_coyote/>　｜　
 安装包：[Releases](https://github.com/galactiC-reformeR/ttf2_coyote/releases)　｜　
