@@ -64,7 +64,7 @@ docs/                      ← GitHub Pages 的发布根（仓库主分支的 do
 
 - **本仓库**：主分支 `main` 的 `docs/` 目录就是发布根，GitHub Pages 已指向它
   （`Settings → Pages → Source = Deploy from a branch / main / /docs`）。
-  推上去即生效，网址形如 `https://galactiC-reformeR.github.io/ttf2_coyote/`。
+  推上去即生效，网址形如 `https://galactic-reformer.github.io/ttf2_coyote/`。
 - **Cloudflare Pages / Vercel / Netlify**：把本目录作为发布根，构建命令留空，输出目录填 `/`（或 `./`）。
 - **自有服务器**：拷到 Nginx/Apache 的站点目录即可；`index.html` 是唯一入口。
 
